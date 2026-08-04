@@ -1,0 +1,625 @@
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..33fd900
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,11 @@
++# API / Neon
++DATABASE_URL="postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
++JWT_SECRET="troque-por-uma-chave-longa-e-aleatoria-com-32-ou-mais-caracteres"
++PORT=3333
++FRONTEND_URL="http://localhost:5173,https://SEU-PROJETO.vercel.app"
++ADMIN_EMAIL="admin@granjamafaldo.com.br"
++ADMIN_PASSWORD="defina-uma-senha-forte-apenas-no-ambiente-seguro"
++SEED_DEMO_DATA="false"
++
++# Front-end (apps/web/.env)
++VITE_API_URL="http://localhost:3333/api"
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..9075bf6
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,43 @@
++name: Validar aplicação
++
++on:
++  push:
++    branches: [main]
++  pull_request:
++
++permissions:
++  contents: read
++
++jobs:
++  build:
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++    env:
++      DATABASE_URL: postgresql://user:password@localhost:5432/granja
++      JWT_SECRET: chave-de-validacao-com-mais-de-32-caracteres
++      FRONTEND_URL: http://localhost:5173
++      VITE_API_URL: http://localhost:3333/api
++    steps:
++      - name: Baixar código
++        uses: actions/checkout@v4
++
++      - name: Configurar Node.js
++        uses: actions/setup-node@v4
++        with:
++          node-version: 22
++          cache: npm
++
++      - name: Instalar dependências
++        run: npm install
++
++      - name: Gerar cliente Prisma
++        run: npm run prisma:generate
++
++      - name: Validar schema Prisma
++        run: npm exec -w @granja/api prisma validate
++
++      - name: Verificar tipos
++        run: npm run typecheck
++
++      - name: Compilar
++        run: npm run build
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..9571196
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,11 @@
++node_modules/
++dist/
++.env
++.env.*
++!.env.example
++.vercel/
++.DS_Store
++coverage/
++apps/web/android/
++apps/web/ios/
++*.log
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..28ea90c
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,57 @@
++# Granja Mafaldo — Gestão Integrada
++
++Sistema web e aplicativo instalável (PWA) para a **Granja Mafaldo — Produtos do Campo**, com foco em produção de ovos caipiras, gestão de lotes, sanidade, biossegurança, estoque, compras, vendas e finanças.
++
++## Principais módulos
++
++- Painel com produção diária, taxa de postura, aves ativas, consumo de ração, mortalidade e resultado financeiro.
++- Aviários, capacidade, lotes, linhagens, origem e ciclo produtivo.
++- Ficha diária: plantel, mortalidade, descartes, ração, água, peso, temperatura, umidade e luz.
++- Coleta e classificação de ovos: jumbo, extra, grande, médio, pequeno, trincado, sujo e descartado.
++- Vacinas, aplicações, reforços, medicamentos, diagnósticos, carência e controle de pragas.
++- Estoque de ração, medicamentos, vacinas, embalagens e materiais, com movimentação transacional.
++- Compras, recebimentos e fornecedores.
++- Clientes, vendas, entregas, pagamentos e rastreabilidade por lote.
++- Gastos por categoria, competência, vencimento e fornecedor.
++- Visitantes, veículos, biossegurança, ambiência e qualidade da água.
++- Tarefas recorrentes, manutenção e biblioteca documental.
++- Relatórios técnicos e financeiros com exportação CSV.
++- Usuários com perfis: administrador, gerente, operador, veterinário e somente leitura.
++- PWA instalável no Android, iPhone e desktop; estrutura compatível com Capacitor.
++
++## Arquitetura
++
++```text
++apps/web   React + TypeScript + Vite + PWA + Capacitor
++apps/api   Node.js + Express + Prisma + JWT
++Neon       PostgreSQL gerenciado
++Vercel     front-end
++Render     API
++```
++
++## Execução local
++
++```bash
++npm install
++cp .env.example .env
++cp apps/web/.env.example apps/web/.env
++npm run prisma:generate
++npm run prisma:push
++npm run seed
++npm run dev:api
++npm run dev:web
++```
++
++A API abre em `http://localhost:3333` e o front-end em `http://localhost:5173`.
++
++## Variáveis necessárias
++
++Consulte `.env.example` e `apps/web/.env.example`. Nunca publique senhas reais ou a URL completa do Neon no GitHub.
++
++## Deploy
++
++As instruções completas estão em [`docs/DEPLOY.md`](docs/DEPLOY.md).
++
++## Dados de demonstração
++
++Defina `SEED_DEMO_DATA=true` somente em ambientes de teste. Em produção, mantenha `false`. O seed não altera a senha de um administrador já existente.
+diff --git a/SECURITY.md b/SECURITY.md
+new file mode 100644
+index 0000000..d13fcd4
+--- /dev/null
++++ b/SECURITY.md
+@@ -0,0 +1,9 @@
++# Segurança
++
++- Não registre senhas, tokens, connection strings ou documentos sensíveis em issues e commits.
++- Use uma `JWT_SECRET` longa e exclusiva.
++- Restrinja `FRONTEND_URL` aos domínios oficiais.
++- Crie usuários individuais; evite compartilhar a conta de administrador.
++- Revise os perfis de acesso periodicamente.
++- Faça exportações e backups periódicos do banco Neon conforme o plano contratado.
++- Links de documentos devem apontar para armazenamento privado com controle de acesso quando houver dados pessoais ou fiscais.
+diff --git a/apps/api/package.json b/apps/api/package.json
+new file mode 100644
+index 0000000..5254fbb
+--- /dev/null
++++ b/apps/api/package.json
+@@ -0,0 +1,42 @@
++{
++  "name": "@granja/api",
++  "version": "2.0.0",
++  "private": true,
++  "type": "module",
++  "main": "dist/server.js",
++  "scripts": {
++    "dev": "tsx watch src/server.ts",
++    "build": "tsc -p tsconfig.json",
++    "start": "node dist/server.js",
++    "typecheck": "tsc -p tsconfig.json --noEmit",
++    "prisma:generate": "prisma generate",
++    "prisma:migrate": "prisma migrate deploy",
++    "prisma:push": "prisma db push",
++    "prisma:dev": "prisma migrate dev",
++    "seed": "tsx src/seed.ts"
++  },
++  "dependencies": {
++    "@prisma/client": "^6.13.0",
++    "bcryptjs": "^3.0.2",
++    "cors": "^2.8.5",
++    "dotenv": "^17.2.1",
++    "express": "^5.1.0",
++    "express-rate-limit": "^7.5.1",
++    "helmet": "^8.1.0",
++    "jsonwebtoken": "^9.0.2",
++    "morgan": "^1.10.0",
++    "zod": "^4.0.14"
++  },
++  "devDependencies": {
++    "@types/cors": "^2.8.19",
++    "@types/express": "^5.0.3",
++    "@types/jsonwebtoken": "^9.0.10",
++    "@types/morgan": "^1.9.10",
++    "prisma": "^6.13.0",
++    "tsx": "^4.20.3",
++    "typescript": "^5.8.3"
++  },
++  "engines": {
++    "node": ">=22"
++  }
++}
+diff --git a/apps/api/prisma/schema.prisma b/apps/api/prisma/schema.prisma
+new file mode 100644
+index 0000000..2a66071
+--- /dev/null
++++ b/apps/api/prisma/schema.prisma
+@@ -0,0 +1,692 @@
++generator client {
++  provider = "prisma-client-js"
++}
++
++datasource db {
++  provider = "postgresql"
++  url      = env("DATABASE_URL")
++}
++
++enum Role {
++  ADMIN
++  MANAGER
++  WORKER
++  VET
++  VIEWER
++}
++
++enum Species {
++  CHICKEN
++  CATTLE
++  PIG
++  SHEEP
++  GOAT
++  FISH
++  BEE
++  OTHER
++}
++
++enum BatchStatus {
++  ACTIVE
++  QUARANTINE
++  SOLD
++  FINISHED
++}
++
++enum MovementType {
++  ENTRY
++  EXIT
++  ADJUSTMENT
++}
++
++enum ExpenseStatus {
++  PENDING
++  PAID
++  CANCELLED
++}
++
++enum VaccinationStatus {
++  SCHEDULED
++  APPLIED
++  OVERDUE
++  CANCELLED
++}
++
++enum ProductionType {
++  EGGS
++  MILK
++  MEAT
++  HONEY
++  FISH
++  MANURE
++  OTHER
++}
++
++enum EggGrade {
++  MIXED
++  JUMBO
++  EXTRA
++  LARGE
++  MEDIUM
++  SMALL
++  BROKEN
++  DIRTY
++  DISCARDED
++}
++
++enum HealthEventType {
++  MEDICATION
++  DISEASE
++  EXAM
++  CLEANING
++  PEST_CONTROL
++  SUPPLEMENT
++  OTHER
++}
++
++enum PurchaseStatus {
++  DRAFT
++  ORDERED
++  RECEIVED
++  CANCELLED
++}
++
++enum SaleStatus {
++  QUOTE
++  CONFIRMED
++  DELIVERED
++  CANCELLED
++}
++
++enum PaymentStatus {
++  PENDING
++  PARTIAL
++  PAID
++  OVERDUE
++  CANCELLED
++}
++
++enum MaintenanceStatus {
++  OPEN
++  IN_PROGRESS
++  COMPLETED
++  CANCELLED
++}
++
++model Farm {
++  id                          String                @id @default(cuid())
++  name                        String
++  document                    String?
++  city                        String?
++  state                       String?
++  phone                       String?
++  email                       String?
++  address                     String?
++  timezone                    String                @default("America/Fortaleza")
++  mortalityAlertPercent       Float                 @default(0.5)
++  productionDropAlertPercent  Float                 @default(10)
++  createdAt                   DateTime              @default(now())
++  updatedAt                   DateTime              @updatedAt
++  users                       User[]
++  houses                      House[]
++  suppliers                   Supplier[]
++  customers                   Customer[]
++  expenseCategories           ExpenseCategory[]
++  expenses                    Expense[]
++  inventoryItems              InventoryItem[]
++  inventoryMovements          InventoryMovement[]
++  purchases                   Purchase[]
++  batches                     LivestockBatch[]
++  animals                     Animal[]
++  dailyFlockRecords           DailyFlockRecord[]
++  eggCollections              EggCollection[]
++  vaccines                    Vaccine[]
++  vaccinations                Vaccination[]
++  healthEvents                HealthEvent[]
++  productionRecords           ProductionRecord[]
++  sales                       Sale[]
++  tasks                       Task[]
++  maintenances                Maintenance[]
++  biosecurityVisits           BiosecurityVisit[]
++  environmentReadings         EnvironmentReading[]
++  documents                   DocumentRecord[]
++  auditLogs                   AuditLog[]
++}
++
++model User {
++  id           String   @id @default(cuid())
++  farmId       String
++  name         String
++  email        String   @unique
++  passwordHash String
++  role         Role     @default(WORKER)
++  active       Boolean  @default(true)
++  createdAt    DateTime @default(now())
++  updatedAt    DateTime @updatedAt
++  farm         Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  auditLogs    AuditLog[]
++
++  @@index([farmId])
++}
++
++model House {
++  id          String   @id @default(cuid())
++  farmId      String
++  name        String
++  code        String
++  capacity    Int
++  housingType String?
++  location    String?
++  active      Boolean  @default(true)
++  notes       String?
++  createdAt   DateTime @default(now())
++  updatedAt   DateTime @updatedAt
++  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  batches     LivestockBatch[]
++  dailyRecords DailyFlockRecord[]
++  eggCollections EggCollection[]
++  environmentReadings EnvironmentReading[]
++
++  @@unique([farmId, code])
++  @@index([farmId, active])
++}
++
++model Supplier {
++  id            String    @id @default(cuid())
++  farmId        String
++  name          String
++  document      String?
++  category      String?
++  contactName   String?
++  phone         String?
++  email         String?
++  address       String?
++  city          String?
++  state         String?
++  notes         String?
++  active        Boolean   @default(true)
++  createdAt     DateTime  @default(now())
++  updatedAt     DateTime  @updatedAt
++  farm          Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  expenses      Expense[]
++  purchases     Purchase[]
++  maintenances  Maintenance[]
++
++  @@index([farmId, name])
++}
++
++model Customer {
++  id          String   @id @default(cuid())
++  farmId      String
++  name        String
++  document    String?
++  contactName String?
++  phone       String?
++  email       String?
++  address     String?
++  city        String?
++  state       String?
++  priceTable  String?
++  notes       String?
++  active      Boolean  @default(true)
++  createdAt   DateTime @default(now())
++  updatedAt   DateTime @updatedAt
++  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  sales       Sale[]
++
++  @@index([farmId, name])
++}
++
++model ExpenseCategory {
++  id        String    @id @default(cuid())
++  farmId    String
++  name      String
++  color     String?
++  createdAt DateTime  @default(now())
++  farm      Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  expenses  Expense[]
++
++  @@unique([farmId, name])
++}
++
++model Expense {
++  id            String            @id @default(cuid())
++  farmId        String
++  supplierId    String?
++  categoryId    String?
++  description   String
++  amount        Decimal           @db.Decimal(14, 2)
++  competence    DateTime?
++  dueDate       DateTime?
++  paidAt        DateTime?
++  status        ExpenseStatus     @default(PENDING)
++  paymentMethod String?
++  documentUrl   String?
++  notes         String?
++  createdAt     DateTime          @default(now())
++  updatedAt     DateTime          @updatedAt
++  farm          Farm              @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  supplier      Supplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
++  category      ExpenseCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
++
++  @@index([farmId, status, dueDate])
++  @@index([farmId, competence])
++}
++
++model InventoryItem {
++  id             String              @id @default(cuid())
++  farmId         String
++  name           String
++  category       String
++  unit           String
++  currentStock   Float               @default(0)
++  minimumStock   Float               @default(0)
++  unitCost       Decimal             @default(0) @db.Decimal(14, 4)
++  lotNumber      String?
++  expiresAt      DateTime?
++  location       String?
++  active         Boolean             @default(true)
++  createdAt      DateTime            @default(now())
++  updatedAt      DateTime            @updatedAt
++  farm           Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  movements      InventoryMovement[]
++  purchaseItems  PurchaseItem[]
++
++  @@index([farmId, category])
++}
++
++model InventoryMovement {
++  id             String        @id @default(cuid())
++  farmId         String
++  itemId         String
++  type           MovementType
++  quantity       Float
++  unitCost       Decimal?      @db.Decimal(14, 4)
++  reason         String?
++  documentNumber String?
++  date           DateTime      @default(now())
++  createdAt      DateTime      @default(now())
++  farm           Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  item           InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
++
++  @@index([farmId, date])
++  @@index([itemId])
++}
++
++model Purchase {
++  id            String         @id @default(cuid())
++  farmId        String
++  supplierId    String
++  date          DateTime
++  invoiceNumber String?
++  status        PurchaseStatus @default(DRAFT)
++  totalValue    Decimal        @default(0) @db.Decimal(14, 2)
++  dueDate       DateTime?
++  receivedAt    DateTime?
++  notes         String?
++  createdAt     DateTime       @default(now())
++  updatedAt     DateTime       @updatedAt
++  farm          Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  supplier      Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
++  items         PurchaseItem[]
++
++  @@index([farmId, date, status])
++}
++
++model PurchaseItem {
++  id              String        @id @default(cuid())
++  purchaseId      String
++  inventoryItemId String?
++  description     String
++  quantity        Float
++  unit            String
++  unitCost        Decimal       @db.Decimal(14, 4)
++  totalValue      Decimal       @db.Decimal(14, 2)
++  purchase        Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
++  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
++
++  @@index([purchaseId])
++}
++
++model LivestockBatch {
++  id                String             @id @default(cuid())
++  farmId            String
++  houseId           String?
++  name               String
++  species            Species
++  breed              String?
++  purpose            String?
++  source              String?
++  initialQuantity     Int
++  currentQuantity     Int
++  entryDate           DateTime
++  hatchDate           DateTime?
++  targetEndDate       DateTime?
++  averageWeight       Float?
++  location            String?
++  status              BatchStatus      @default(ACTIVE)
++  purchaseValue       Decimal?          @db.Decimal(14, 2)
++  notes               String?
++  createdAt           DateTime          @default(now())
++  updatedAt           DateTime          @updatedAt
++  farm                Farm              @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  house               House?            @relation(fields: [houseId], references: [id], onDelete: SetNull)
++  animals             Animal[]
++  dailyRecords        DailyFlockRecord[]
++  eggCollections      EggCollection[]
++  vaccinations        Vaccination[]
++  healthEvents        HealthEvent[]
++  productionRecords   ProductionRecord[]
++  sales               Sale[]
++
++  @@index([farmId, status, species])
++  @@index([houseId])
++}
++
++model Animal {
++  id             String          @id @default(cuid())
++  farmId         String
++  batchId        String?
++  identification String
++  species        Species
++  breed          String?
++  sex            String?
++  birthDate      DateTime?
++  weight         Float?
++  status         String          @default("ACTIVE")
++  notes          String?
++  createdAt      DateTime        @default(now())
++  updatedAt      DateTime        @updatedAt
++  farm           Farm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
++  batch          LivestockBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
++
++  @@unique([farmId, identification])
++  @@index([farmId, species])
++}
++
++model DailyFlockRecord {
++  id               String          @id @default(cuid())
++  farmId           String
++  batchId         
