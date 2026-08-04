@@ -1,0 +1,62 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+enum Role { ADMIN MANAGER WORKER VET VIEWER }
+model Farm {
+  id String @id @default(cuid())
+  name String
+  document String?
+  phone String?
+  email String?
+  address String?
+  city String?
+  state String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users User[]
+  entries Entry[]
+  audits Audit[]
+}
+model User {
+  id String @id @default(cuid())
+  farmId String
+  name String
+  email String @unique
+  passwordHash String
+  role Role @default(WORKER)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  farm Farm @relation(fields:[farmId],references:[id],onDelete:Cascade)
+  audits Audit[]
+  @@index([farmId])
+}
+model Entry {
+  id String @id @default(cuid())
+  farmId String
+  module String
+  title String
+  date DateTime?
+  status String?
+  quantity Float?
+  amount Decimal? @db.Decimal(14,2)
+  referenceId String?
+  data Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  farm Farm @relation(fields:[farmId],references:[id],onDelete:Cascade)
+  @@index([farmId,module,date])
+  @@index([farmId,status])
+}
+model Audit {
+  id String @id @default(cuid())
+  farmId String
+  userId String?
+  action String
+  entity String
+  entityId String?
+  payload Json?
+  createdAt DateTime @default(now())
+  farm Farm @relation(fields:[farmId],references:[id],onDelete:Cascade)
+  user User? @relation(fields:[userId],references:[id],onDelete:SetNull)
+  @@index([farmId,createdAt])
+}
