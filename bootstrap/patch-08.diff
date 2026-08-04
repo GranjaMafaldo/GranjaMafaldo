@@ -1,0 +1,288 @@
+diff --git a/apps/web/tsconfig.app.json b/apps/web/tsconfig.app.json
+new file mode 100644
+--- /dev/null
++++ b/apps/web/tsconfig.app.json
+@@ -0,0 +1,18 @@
++{
++  "compilerOptions": {
++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
++    "target": "ES2022",
++    "useDefineForClassFields": true,
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "skipLibCheck": true,
++    "esModuleInterop": true,
++    "allowSyntheticDefaultImports": true,
++    "strict": true,
++    "module": "ESNext",
++    "moduleResolution": "Bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "noEmit": true,
++    "jsx": "react-jsx",
++    "noUncheckedIndexedAccess": true
++  },
++  "include": ["src"]
++}
++diff --git a/apps/web/tsconfig.json b/apps/web/tsconfig.json
++new file mode 100644
++--- /dev/null
+++++ b/apps/web/tsconfig.json
++@@ -0,0 +1,4 @@
+++{
+++  "files": [],
+++  "references": [{"path":"./tsconfig.app.json"},{"path":"./tsconfig.node.json"}]
+++}
++diff --git a/apps/web/tsconfig.node.json b/apps/web/tsconfig.node.json
++new file mode 100644
++--- /dev/null
+++++ b/apps/web/tsconfig.node.json
++@@ -0,0 +1,16 @@
+++{
+++  "compilerOptions": {
+++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+++    "target": "ES2023",
+++    "lib": ["ES2023"],
+++    "module": "ESNext",
+++    "skipLibCheck": true,
+++    "moduleResolution": "Bundler",
+++    "allowImportingTsExtensions": true,
+++    "verbatimModuleSyntax": true,
+++    "moduleDetection": "force",
+++    "noEmit": true,
+++    "strict": true
+++  },
+++  "include": ["vite.config.ts", "capacitor.config.ts"]
+++}
++diff --git a/apps/web/vite.config.ts b/apps/web/vite.config.ts
++new file mode 100644
++--- /dev/null
+++++ b/apps/web/vite.config.ts
++@@ -0,0 +1,31 @@
+++import { defineConfig } from 'vite';
+++import react from '@vitejs/plugin-react';
+++import { VitePWA } from 'vite-plugin-pwa';
+++
+++export default defineConfig({
+++  plugins: [
+++    react(),
+++    VitePWA({
+++      registerType: 'autoUpdate',
+++      includeAssets: ['favicon.svg', 'logo-mark.svg', 'logo-wordmark.svg'],
+++      manifest: {
+++        name: 'Granja Mafaldo',
+++        short_name: 'Mafaldo',
+++        description: 'Gestão completa da Granja Mafaldo',
+++        theme_color: '#344718',
+++        background_color: '#f8f3e3',
+++        display: 'standalone',
+++        orientation: 'portrait-primary',
+++        start_url: '/',
+++        scope: '/',
+++        icons: [
+++          { src: '/logo-mark.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+++          { src: '/logo-mark.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' }
+++        ]
+++      },
+++      workbox: { navigateFallback: '/index.html', cleanupOutdatedCaches: true }
+++    })
+++  ],
+++  server: { port: 5173, host: true },
+++  preview: { port: 4173, host: true }
+++});
++diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
++new file mode 100644
++--- /dev/null
+++++ b/docs/ARCHITECTURE.md
++@@ -0,0 +1,32 @@
+++# Arquitetura
+++
+++## Monorepo
+++
+++```text
+++apps/api   API Express, Prisma e PostgreSQL
+++apps/web   React, Vite, PWA e Capacitor
+++docs       implantação e operação
+++```
+++
+++## Fluxo de segurança
+++
+++1. O usuário autentica em `/api/auth/login`.
+++2. A API emite um JWT com usuário, granja e perfil.
+++3. Todas as rotas protegidas recuperam o usuário ativo.
+++4. Cada operação aplica obrigatoriamente o `farmId` da sessão.
+++5. Alterações relevantes geram registros na auditoria.
+++
+++## Domínios
+++
+++- Produção: aviários, lotes, ficha diária e coleta de ovos.
+++- Sanidade: vacinas, aplicações, tratamentos e carência.
+++- Estoque: itens, lotes, validade e movimentações transacionais.
+++- Comercial: clientes, produtos, vendas, entregas e pagamentos.
+++- Financeiro: compras, fornecedores, despesas e resultado.
+++- Operação: tarefas, manutenções, visitantes e biossegurança.
+++- Qualidade: ambiência, água, documentos e rastreabilidade.
+++
+++## Aplicativo móvel
+++
+++A mesma interface é entregue como site responsivo, PWA instalável e aplicativo Android/iOS por meio do Capacitor. A API permanece centralizada no Render e o banco no Neon.
++diff --git a/docs/DEPLOY.md b/docs/DEPLOY.md
++new file mode 100644
++--- /dev/null
+++++ b/docs/DEPLOY.md
++@@ -0,0 +1,53 @@
+++# Implantação
+++
+++## 1. Banco Neon
+++
+++1. Crie um projeto PostgreSQL no Neon.
+++2. Copie a connection string com `sslmode=require`.
+++3. Configure `DATABASE_URL` em um arquivo `.env` local.
+++4. Execute:
+++
+++```bash
+++npm install
+++npm run prisma:generate
+++npm run db:push
+++npm run db:seed
+++```
+++
+++## 2. API no Render
+++
+++Use o `render.yaml` da raiz. Configure:
+++
+++```env
+++DATABASE_URL=postgresql://...
+++JWT_SECRET=uma-chave-aleatoria-com-mais-de-32-caracteres
+++CORS_ORIGINS=https://seu-projeto.vercel.app
+++```
+++
+++O endpoint de verificação é `/api/health`.
+++
+++## 3. Aplicativo na Vercel
+++
+++Importe o mesmo repositório, mantendo a raiz do projeto. Configure:
+++
+++```env
+++VITE_API_URL=https://seu-servico.onrender.com/api
+++```
+++
+++Após o primeiro deploy, coloque o domínio da Vercel em `CORS_ORIGINS` no Render.
+++
+++## 4. Administrador inicial
+++
+++Defina temporariamente:
+++
+++```env
+++SEED_ADMIN_NAME=Administrador Granja Mafaldo
+++SEED_ADMIN_EMAIL=admin@granjamafaldo.com.br
+++SEED_ADMIN_PASSWORD=uma-senha-forte
+++```
+++
+++Execute `npm run db:seed` apenas para criar ou redefinir o administrador inicial.
+++
+++## 5. Android/iOS
+++
+++```bash
+++npm install
+++npm run mobile:add:android -w @granja-mafaldo/web
+++npm run mobile:sync
+++npm run mobile:open:android -w @granja-mafaldo/web
+++```
+++
+++Para iOS é necessário macOS com Xcode.
++diff --git a/docs/USER_GUIDE.md b/docs/USER_GUIDE.md
++new file mode 100644
++--- /dev/null
+++++ b/docs/USER_GUIDE.md
++@@ -0,0 +1,31 @@
+++# Guia rápido de operação
+++
+++## Rotina diária sugerida
+++
+++1. Registre a ficha diária de cada lote.
+++2. Lance a coleta e a classificação dos ovos.
+++3. Confira estoque de ração, medicamentos e embalagens.
+++4. Verifique vacinações e tarefas no painel.
+++5. Registre vendas, recebimentos e despesas.
+++
+++## Estoque
+++
+++Cadastre o item e depois utilize **Movimentações de estoque**. Entradas aumentam o saldo, saídas reduzem e ajustes aplicam uma diferença positiva ou negativa. O sistema impede saldo negativo.
+++
+++## Produção
+++
+++A taxa de postura é calculada por:
+++
+++```text
+++ovos produzidos no dia / aves ativas × 100
+++```
+++
+++Separe ovos sujos, trincados, quebrados e descartados para medir perdas e qualidade.
+++
+++## Rastreabilidade
+++
+++Vendas podem ser vinculadas ao lote de aves de origem. Vacinações e tratamentos permanecem vinculados ao lote e ao responsável.
+++
+++## Relatórios
+++
+++A tela **Relatórios** exporta arquivos CSV compatíveis com Excel e Power BI.
++diff --git a/package.json b/package.json
++new file mode 100644
++--- /dev/null
+++++ b/package.json
++@@ -0,0 +1,21 @@
+++{
+++  "name": "granja-mafaldo",
+++  "version": "2.0.0",
+++  "private": true,
+++  "workspaces": ["apps/*"],
+++  "scripts": {
+++    "dev": "concurrently -n API,WEB -c auto \"npm run dev -w @granja-mafaldo/api\" \"npm run dev -w @granja-mafaldo/web\"",
+++    "build": "npm run build -w @granja-mafaldo/api && npm run build -w @granja-mafaldo/web",
+++    "typecheck": "npm run typecheck -w @granja-mafaldo/api && npm run typecheck -w @granja-mafaldo/web",
+++    "prisma:generate": "npm run prisma:generate -w @granja-mafaldo/api",
+++    "db:push": "npm run db:push -w @granja-mafaldo/api",
+++    "db:seed": "npm run db:seed -w @granja-mafaldo/api",
+++    "mobile:sync": "npm run mobile:sync -w @granja-mafaldo/web"
+++  },
+++  "devDependencies": {
+++    "concurrently": "^9.2.0"
+++  },
+++  "engines": {"node": ">=22"}
+++}
++diff --git a/render.yaml b/render.yaml
++new file mode 100644
++--- /dev/null
+++++ b/render.yaml
++@@ -0,0 +1,18 @@
+++services:
+++  - type: web
+++    name: granja-mafaldo-api
+++    runtime: node
+++    plan: free
+++    rootDir: .
+++    buildCommand: npm install && npm run prisma:generate && npm run build -w @granja-mafaldo/api
+++    startCommand: npm run start -w @granja-mafaldo/api
+++    healthCheckPath: /api/health
+++    envVars:
+++      - key: NODE_VERSION
+++        value: 22
+++      - key: DATABASE_URL
+++        sync: false
+++      - key: JWT_SECRET
+++        generateValue: true
+++      - key: CORS_ORIGINS
+++        sync: false
++diff --git a/vercel.json b/vercel.json
++new file mode 100644
++--- /dev/null
+++++ b/vercel.json
++@@ -0,0 +1,8 @@
+++{
+++  "$schema": "https://openapi.vercel.sh/vercel.json",
+++  "installCommand": "npm install",
+++  "buildCommand": "npm run build -w @granja-mafaldo/web",
+++  "outputDirectory": "apps/web/dist",
+++  "framework": "vite",
+++  "rewrites": [{"source":"/(.*)","destination":"/index.html"}]
+++}
