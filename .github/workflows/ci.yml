@@ -1,0 +1,40 @@
+name: Validar aplicação
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/granja
+      JWT_SECRET: chave-de-validacao-com-mais-de-32-caracteres
+      FRONTEND_URL: http://localhost:5173
+      VITE_API_URL: http://localhost:3333/api
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Gerar cliente Prisma
+        run: npm run prisma:generate
+
+      - name: Validar tipos
+        run: npm run typecheck
+
+      - name: Compilar API e aplicativo
+        run: npm run build
