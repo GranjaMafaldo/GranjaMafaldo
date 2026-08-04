@@ -1,0 +1,45 @@
+name: Finalizar plataforma completa
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalizar-plataforma
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    if: ${{ hashFiles('bootstrap/patch-08.diff') != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar pacote antes de alterar a main
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat bootstrap/patch-*.diff > /tmp/granja-mafaldo.patch
+          TEST_DIR="$(mktemp -d)"
+          git init -q "$TEST_DIR"
+          cd "$TEST_DIR"
+          git apply --check /tmp/granja-mafaldo.patch
+
+      - name: Publicar árvore final limpa
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -r --ignore-unmatch .
+          git clean -fdx
+          git apply --index /tmp/granja-mafaldo.patch
+          git commit -m "Finaliza plataforma completa da Granja Mafaldo"
+          git push origin HEAD:main
