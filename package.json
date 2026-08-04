@@ -2,11 +2,9 @@
   "name": "granja-mafaldo",
   "private": true,
   "version": "1.0.0",
-  "workspaces": [
-    "apps/api",
-    "apps/web"
-  ],
+  "workspaces": ["apps/api", "apps/web"],
   "scripts": {
+    "dev": "concurrently -n API,WEB -c auto \"npm run dev -w @granja/api\" \"npm run dev -w @granja/web\"",
     "dev:api": "npm run dev -w @granja/api",
     "dev:web": "npm run dev -w @granja/web",
     "build": "npm run build -w @granja/api && npm run build -w @granja/web",
@@ -14,9 +12,9 @@
     "prisma:generate": "npm run prisma:generate -w @granja/api",
     "prisma:push": "npm run prisma:push -w @granja/api",
     "prisma:migrate": "npm run prisma:migrate -w @granja/api",
-    "seed": "npm run seed -w @granja/api"
+    "seed": "npm run seed -w @granja/api",
+    "mobile:sync": "npm run mobile:sync -w @granja/web"
   },
-  "engines": {
-    "node": ">=20"
-  }
+  "devDependencies": {"concurrently": "^9.2.0"},
+  "engines": {"node": ">=22"}
 }
