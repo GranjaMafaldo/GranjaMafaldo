@@ -1,0 +1,51 @@
+name: Finalizar plataforma pelo PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalizar-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  finalizar:
+    if: ${{ github.head_ref == 'agent/complete-platform' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Baixar branch do projeto
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Verificar pacote
+        id: pacote
+        shell: bash
+        run: |
+          if compgen -G '.release/part*' > /dev/null; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validar e reconstruir código-fonte
+        if: steps.pacote.outputs.exists == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .release/part* > /tmp/granja-complete.patch
+          TEST_DIR="$(mktemp -d)"
+          git init -q "$TEST_DIR"
+          (cd "$TEST_DIR" && git apply --check /tmp/granja-complete.patch)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -r --ignore-unmatch .
+          git clean -fdx
+          git apply --index /tmp/granja-complete.patch
+          git commit -m "Finaliza sistema completo da Granja Mafaldo"
+          git push origin HEAD:${{ github.head_ref }}
