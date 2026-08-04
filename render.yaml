@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: granja-mafaldo-api
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm install && npm run prisma:generate -w @granja/api && npm run prisma:push -w @granja/api && npm run seed -w @granja/api && npm run build -w @granja/api
+    startCommand: npm run start -w @granja/api
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        value: admin@granjamafaldo.com.br
+      - key: ADMIN_PASSWORD
+        sync: false
